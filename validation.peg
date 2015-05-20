@@ -1,0 +1,62 @@
+package aver
+
+type Validation Peg {
+}
+
+expression <-
+  ('for' assignment (',' assignment)*)?
+   'expect' result ('and' result)* .!
+
+result <-
+  value (range / comparison)
+
+range <-
+  'in' ws* '[' value ',' value ']' ws*
+
+comparison <-
+  comparison_op value
+
+value <-
+  from_function / literal
+
+comparison_op <-
+  ws* ('=' / '>' / '<' / '>=' / '<=' / '!=') ws*
+
+from_function <-
+  ws* string ws* '(' assignment (',' assignment)* ')' ws*
+
+assignment <-
+  ws* string ws* '=' ws* literal ws*
+
+literal <-
+  number / string / (string '*' number) / '*'
+
+string <- [^\n]+
+
+number <- [0-9]+
+
+ws <- (' ' / '\t')
+
+// for
+//   size=*
+//
+// expect
+//   ceph >= raw * 0.9
+//
+// expect
+//   throughput(ceph, size=*) >= throughput(raw)
+//
+//
+// for
+//    <values for ind_vars>
+// expect
+//    <ind_var value> comparison <ind_var value>
+//
+// for method=fill-spill and mds=2
+// expect speedup(spill=25) < speedup(spill=10)
+//
+// expect speedup(greedy,mds=2) > any and
+//        speedup(greedy_even,mds=4) < any and
+//        speedup(fill-spill,mds=2,spill=25) < speedup(fill-spill,mds=2,spill=10)
+// expect stddev(speedup(spill=25)) < stddev(speedup(spill=10))
+// expect session(mds=2) < sessions(mds=3) < sessions(mds=4)
