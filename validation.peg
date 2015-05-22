@@ -1,62 +1,98 @@
 package aver
 
-type Validation Peg {
+type validationParser Peg {
+  state
 }
 
 expression <-
-  ('for' assignment (',' assignment)*)?
-   'expect' result ('and' result)* .!
+   global_assignment? validations !.
+
+global_assignment <-
+   'for' assignment (',' assignment)*
+      { p.EndGlobalAssignment() }
+
+validations <-
+   'expect'
+      { p.BeginValidation() }
+   result ( 'and'
+      { p.BeginValidation() }
+   result)*
 
 result <-
-  value (range / comparison)
+   value { p.EndLeft() } (range / comparison) { p.EndValidation() }
 
 range <-
-  'in' ws* '[' value ',' value ']' ws*
+   'in' ws '[' value { p.EndLowest() } ',' value { p.EndHighest() } ']'
 
 comparison <-
-  comparison_op value
+   comparison_op value
+      { p.EndComparison() }
 
 value <-
-  from_function / literal
+   from_function { p.EndFunctionValue() } / literal { p.EndLiteralValue() }
 
 comparison_op <-
-  ws* ('=' / '>' / '<' / '>=' / '<=' / '!=') ws*
+   ws <('=' / '>' / '<' / '>=' / '<=' / '!=')>
+     { p.SetComparisonOp(buffer[begin:end]) }
 
 from_function <-
-  ws* string ws* '(' assignment (',' assignment)* ')' ws*
+   str
+      { p.BeginFunctionValue() }
+   '(' assignment (',' assignment)* ')'
 
 assignment <-
-  ws* string ws* '=' ws* literal ws*
+   str
+      { p.BeginAssignment() }
+   '='
+   literal
+      { p.EndAssignment() }
 
 literal <-
-  number / string / (string '*' number) / '*'
+   number
+      { p.SetNumeric() }
+   / str
+      { p.SetString() }
+   / relative
+      { p.SetRelative() }
+   / any
+      { p.SetAny() }
 
-string <- [^\n]+
+any <-
+   ws ('*' / 'any') ws
 
-number <- [0-9]+
+relative <-
+   str '*' number
 
-ws <- (' ' / '\t')
+str <-
+   ws <[a-zA-Z] [a-zA-Z_0-9]*> ws
+      { p.StringValue(buffer[begin:end]) }
 
-// for
-//   size=*
-//
-// expect
-//   ceph >= raw * 0.9
-//
-// expect
-//   throughput(ceph, size=*) >= throughput(raw)
-//
-//
-// for
-//    <values for ind_vars>
-// expect
-//    <ind_var value> comparison <ind_var value>
-//
-// for method=fill-spill and mds=2
-// expect speedup(spill=25) < speedup(spill=10)
-//
-// expect speedup(greedy,mds=2) > any and
-//        speedup(greedy_even,mds=4) < any and
-//        speedup(fill-spill,mds=2,spill=25) < speedup(fill-spill,mds=2,spill=10)
-// expect stddev(speedup(spill=25)) < stddev(speedup(spill=10))
-// expect session(mds=2) < sessions(mds=3) < sessions(mds=4)
+number <-
+   ws <[0-9]+ ('.' [0-9]+)?> ws
+      { p.NumericValue(buffer[begin:end]) }
+
+ws <- [ \t\n\r]*
+
+# for
+#   size=*
+#
+# expect
+#   ceph >= raw * 0.9
+#
+# expect
+#   throughput(ceph, size=*) >= throughput(raw)
+#
+#
+# for
+#    <values for ind_vars>
+# expect
+#    <ind_var value> comparison <ind_var value>
+#
+# for method=fill-spill and mds=2
+# expect speedup(spill=25) < speedup(spill=10)
+#
+# expect speedup(greedy,mds=2) > any and
+#        speedup(greedy_even,mds=4) < any and
+#        speedup(fill-spill,mds=2,spill=25) < speedup(fill-spill,mds=2,spill=10)
+# expect stddev(speedup(spill=25)) < stddev(speedup(spill=10))
+# expect session(mds=2) < sessions(mds=3) < sessions(mds=4)
