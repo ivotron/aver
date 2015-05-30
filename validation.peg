@@ -5,55 +5,52 @@ type validationParser Peg {
 }
 
 expression <-
-   global_assignment? validations !.
+   global_predicate? validation !.
 
-global_assignment <-
-   'for' assignment (',' assignment)*
-      { p.EndGlobalAssignment() }
+global_predicate <-
+   'for' predicate (',' predicate)* { p.EndGlobalPredicate() }
 
-validations <-
+validation <-
    'expect'
       { p.BeginValidation() }
-   result ( 'and'
-      { p.BeginValidation() }
-   result)*
+   result
 
 result <-
-   value { p.EndLeft() } (range / comparison) { p.EndValidation() }
-
-range <-
-   'in' ws '[' value { p.EndLowest() } ',' value { p.EndHighest() } ']'
-
-comparison <-
-   comparison_op value
-      { p.EndComparison() }
+   value
+      { p.EndLeft() }
+   op
+      { p.SetResultOp() }
+   value
+      { p.EndRight() }
+   relative?
 
 value <-
-   from_function { p.EndFunctionValue() } / literal { p.EndLiteralValue() }
+   from_function
+      { p.EndFunctionValue() }
+   / literal
+      { p.EndLiteralValue() }
 
-comparison_op <-
+op <-
    ws <('=' / '>' / '<' / '>=' / '<=' / '!=')>
      { p.SetComparisonOp(buffer[begin:end]) }
 
 from_function <-
-   str
+   str ws
       { p.BeginFunctionValue() }
-   '(' assignment (',' assignment)* ')'
+   '(' predicate (',' predicate)* ')'
 
-assignment <-
+predicate <-
    str
-      { p.BeginAssignment() }
-   '='
+      { p.BeginPredicate() }
+   op
    literal
-      { p.EndAssignment() }
+      { p.EndPredicate() }
 
 literal <-
    number
       { p.SetNumeric() }
    / str
       { p.SetString() }
-   / relative
-      { p.SetRelative() }
    / any
       { p.SetAny() }
 
@@ -61,7 +58,8 @@ any <-
    ws ('*' / 'any') ws
 
 relative <-
-   str '*' number
+   ws '*' number
+      { p.SetRelative() }
 
 str <-
    ws <[a-zA-Z] [a-zA-Z_0-9]*> ws
@@ -69,30 +67,6 @@ str <-
 
 number <-
    ws <[0-9]+ ('.' [0-9]+)?> ws
-      { p.NumericValue(buffer[begin:end]) }
+      { p.StringValue(buffer[begin:end]) }
 
 ws <- [ \t\n\r]*
-
-# for
-#   size=*
-#
-# expect
-#   ceph >= raw * 0.9
-#
-# expect
-#   throughput(ceph, size=*) >= throughput(raw)
-#
-#
-# for
-#    <values for ind_vars>
-# expect
-#    <ind_var value> comparison <ind_var value>
-#
-# for method=fill-spill and mds=2
-# expect speedup(spill=25) < speedup(spill=10)
-#
-# expect speedup(greedy,mds=2) > any and
-#        speedup(greedy_even,mds=4) < any and
-#        speedup(fill-spill,mds=2,spill=25) < speedup(fill-spill,mds=2,spill=10)
-# expect stddev(speedup(spill=25)) < stddev(speedup(spill=10))
-# expect session(mds=2) < sessions(mds=3) < sessions(mds=4)
