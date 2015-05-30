@@ -2,7 +2,7 @@
 
 package aver
 
-import "strconv"
+import "strings"
 
 type Op int
 
@@ -12,35 +12,26 @@ const (
 	EQL // =
 	LSS // <
 	GTR // >
-	NOT // !
-	NEQ // !=
+	NOT // <>
 	LEQ // <=
 	GEQ // >=
-	ANY // *
 )
-
-type Predicate struct {
-	variable string
-	op       Op
-	value    interface{}
-}
 
 type Value struct {
 	funcName   string
-	predicates []Predicate
+	predicates string
 }
 
 type Validation struct {
-	global   []Predicate
+	global   string
 	left     Value
 	op       Op
 	right    Value
-	relative float64
+	relative string
 }
 
 type state struct {
-	currentPredicates []Predicate
-	currentPredicate  Predicate
+	currentPredicates string
 	currentString     string
 	currentValue      Value
 	currentOperator   Op
@@ -51,7 +42,6 @@ func ParseValidation(input string) (v Validation, e error) {
 	p := validationParser{Buffer: input}
 
 	p.Init()
-	p.state.Init()
 
 	if e = p.Parse(); e != nil {
 		return
@@ -59,15 +49,7 @@ func ParseValidation(input string) (v Validation, e error) {
 
 	p.Execute()
 
-	return p.state.validation, nil
-}
-
-func (s *state) Init() {
-	s.currentPredicates = make([]Predicate, 0)
-}
-
-func (s *state) BeginValidation() {
-	s.validation = Validation{}
+	return p.validation, nil
 }
 
 func (s *state) SetComparisonOp(op string) {
@@ -80,7 +62,7 @@ func (s *state) SetComparisonOp(op string) {
 		s.currentOperator = LSS
 	case ">":
 		s.currentOperator = GTR
-	case "!=":
+	case "<>":
 		s.currentOperator = NOT
 	case "<=":
 		s.currentOperator = LEQ
@@ -89,7 +71,7 @@ func (s *state) SetComparisonOp(op string) {
 	}
 }
 
-func (s *state) EndGlobalPredicate() {
+func (s *state) EndGlobalPredicates() {
 	s.validation.global = s.currentPredicates
 }
 
@@ -99,20 +81,10 @@ func (s *state) BeginFunctionValue() {
 
 func (s *state) EndFunctionValue() {
 	s.currentValue.predicates = s.currentPredicates
-	s.currentPredicates = make([]Predicate, 0)
 }
 
-func (s *state) EndLiteralValue() {
-	s.currentValue = Value{funcName: "", predicates: s.currentPredicates}
-}
-
-func (s *state) BeginPredicate() {
-	s.currentPredicate = Predicate{variable: s.currentString}
-}
-
-func (s *state) EndPredicate() {
-	s.currentPredicate.op = s.currentOperator
-	s.currentPredicates = append(s.currentPredicates, s.currentPredicate)
+func (s *state) SetPredicates(predicates string) {
+	s.currentPredicates = strings.TrimSpace(predicates)
 }
 
 func (s *state) EndLeft() {
@@ -127,32 +99,10 @@ func (s *state) SetResultOp() {
 	s.validation.op = s.currentOperator
 }
 
-func (s *state) SetNumeric() {
-	s.currentPredicate.value = toNumber(s.currentString)
-}
-
-func toNumber(value string) float64 {
-	num, err := strconv.ParseFloat(value, 64)
-
-	if err != nil {
-		panic("Conversion error")
-	}
-
-	return num
-}
-
-func (s *state) SetString() {
-	s.currentPredicate.value = s.currentString
-}
-
 func (s *state) StringValue(value string) {
 	s.currentString = value
 }
 
 func (s *state) SetRelative() {
-	s.validation.relative = toNumber(s.currentString)
-}
-
-func (s *state) SetAny() {
-	s.currentPredicate.op = ANY
+	s.validation.relative = s.currentString
 }

@@ -5,15 +5,18 @@ type validationParser Peg {
 }
 
 expression <-
-   global_predicate? validation !.
+   global_predicates? validation !.
 
-global_predicate <-
-   'for' predicate (',' predicate)* { p.EndGlobalPredicate() }
+global_predicates <-
+   ws 'for' predicates
+      { p.EndGlobalPredicates() }
+
+predicates <-
+   <predicate ('and' predicate)*>
+      { p.SetPredicates(buffer[begin:end]) }
 
 validation <-
-   'expect'
-      { p.BeginValidation() }
-   result
+   ws 'expect' result
 
 result <-
    value
@@ -25,37 +28,19 @@ result <-
    relative?
 
 value <-
-   from_function
-      { p.EndFunctionValue() }
-   / literal
-      { p.EndLiteralValue() }
-
-op <-
-   ws <('=' / '>' / '<' / '>=' / '<=' / '!=')>
-     { p.SetComparisonOp(buffer[begin:end]) }
-
-from_function <-
    str ws
       { p.BeginFunctionValue() }
-   '(' predicate (',' predicate)* ')'
+   ( '(' predicates ')' ws )?
+      { p.EndFunctionValue() }
+
+op <-
+   ws ('=' / '>' / '<' / '>=' / '<=' / '<>')
 
 predicate <-
-   str
-      { p.BeginPredicate() }
-   op
-   literal
-      { p.EndPredicate() }
+   str op literal
 
 literal <-
-   number
-      { p.SetNumeric() }
-   / str
-      { p.SetString() }
-   / any
-      { p.SetAny() }
-
-any <-
-   ws ('*' / 'any') ws
+   ws ( number / ['] str ['] ) ws
 
 relative <-
    ws '*' number
