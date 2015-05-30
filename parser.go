@@ -1,4 +1,4 @@
-//go:generate peg -switch -inline validation.peg
+//go:generate peg -switch -inline parser.peg
 
 package aver
 
