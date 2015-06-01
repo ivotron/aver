@@ -50,13 +50,18 @@ func TestValidParsing(t *testing.T) {
 }
 
 func TestInvalidParsing(t *testing.T) {
-	// all these should fail
-
 	input := `
 	expect
 	   foo > 0.9 * bar
 	`
 	_, err := ParseValidation(input)
+	assert.NotNil(t, err)
+
+	input = `
+	expect
+	   foo > bar * .9
+	`
+	_, err = ParseValidation(input)
 	assert.NotNil(t, err)
 
 	input = `
@@ -72,4 +77,5 @@ func TestInvalidParsing(t *testing.T) {
 		`
 	_, err = ParseValidation(input)
 	assert.NotNil(t, err)
+
 }

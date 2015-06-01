@@ -21,8 +21,8 @@ validation <-
 result <-
    value
       { p.EndLeft() }
-   op
-      { p.SetResultOp() }
+   <op>
+      { p.SetResultOp(buffer[begin:end]) }
    value
       { p.EndRight() }
    relative?
