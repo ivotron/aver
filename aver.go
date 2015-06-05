@@ -100,14 +100,16 @@ func Holds(validation string, db *sql.DB, metricsTbl string) (b bool, err error)
 		return
 	}
 
+	rows.Close()
+
 	columns := make([]string, 0)
 
+	// remove the dependent variable from the column names
 	for _, name := range c {
 		if name != v.left.funcName {
 			columns = append(columns, name)
 		}
 	}
-	rows.Close()
 
 	// }
 

@@ -12,16 +12,4 @@ printf "## (03/03)\r"
 printf "\n"
 }
 
-function build {
-  go build ./...
-}
-
-function install {
-  go install ./...
-}
-
-function test {
-  go test ./...
-}
-
 $1
