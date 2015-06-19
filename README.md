@@ -40,7 +40,7 @@ our claim:
 for
   size > 4 and replication = *
 expect
-  throughput(method='a') < throughput(method='b') * 2
+  throughput(method='a') > throughput(method='b') * 2
 ```
 
 In prose, the above states that, regardless of the replication factor, 
