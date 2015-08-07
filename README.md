@@ -1,5 +1,7 @@
 # Project Aver
 
+![Build Status](https://travis-ci.org/ivotron/aver.svg?branch=master)](https://travis-ci.org/ivotron/aver)
+
 Aver lets you quickly test claims made about the performance of a 
 system. Aver can be thought as a system that checks high-level 
 assertions (in the 
