@@ -17,7 +17,7 @@ func TestNullDBPointer(t *testing.T) {
 }
 
 func TestDistinctFunctionNames(t *testing.T) {
-	db := openDB(t)
+	db := openDB(t, ":memory:")
 	defer db.Close()
 
 	_, err := Holds("expect foo > bar", db, "bar")
@@ -26,8 +26,8 @@ func TestDistinctFunctionNames(t *testing.T) {
 	assert.Equal(t, "aver: Validation string; foo discint to bar", err.Error())
 }
 
-func openDB(t *testing.T) (db *sql.DB) {
-	db, err := sql.Open("sqlite3", ":memory:")
+func openDB(t *testing.T, file string) (db *sql.DB) {
+	db, err := sql.Open("sqlite3", file)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
@@ -36,7 +36,7 @@ func openDB(t *testing.T) (db *sql.DB) {
 }
 
 func TestNoMetrics(t *testing.T) {
-	db := openDB(t)
+	db := openDB(t, ":memory:")
 	defer db.Close()
 
 	createTestTable(t, db)
@@ -54,7 +54,7 @@ func TestNoMetrics(t *testing.T) {
 }
 
 func TestWrongNumberOfMetrics(t *testing.T) {
-	db := openDB(t)
+	db := openDB(t, ":memory:")
 	defer db.Close()
 
 	loadTestTable(t, db)
@@ -108,7 +108,7 @@ func loadTestTable(t *testing.T, db *sql.DB) {
 }
 
 func TestValidationCheck(t *testing.T) {
-	db := openDB(t)
+	db := openDB(t, ":memory:")
 	defer db.Close()
 
 	loadTestTable(t, db)
