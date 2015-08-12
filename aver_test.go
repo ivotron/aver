@@ -30,7 +30,29 @@ func TestDistinctFunctionNames(t *testing.T) {
 	_, err := Holds("expect foo > bar", db, "bar")
 
 	assert.NotNil(t, err)
-	assert.Equal(t, "aver: Validation string; foo discint to bar", err.Error())
+	assert.Equal(t, "aver: Validation comparison; foo distinct to bar", err.Error())
+}
+
+func TestOnlyNumericValuesInComparison(t *testing.T) {
+	db := openDB(t, ":memory:")
+	defer db.Close()
+
+	_, err := Holds("expect 0 > 0", db, "bar")
+
+	assert.NotNil(t, err)
+	assert.Equal(t,
+		"aver: Expecting reference to a variable in comparison clause", err.Error())
+}
+
+func TestNumericOnlyOnRight(t *testing.T) {
+	db := openDB(t, ":memory:")
+	defer db.Close()
+
+	_, err := Holds("expect 0 > right", db, "bar")
+
+	assert.NotNil(t, err)
+	assert.Equal(t,
+		"aver: Numeric is only supported on the RHS of comparison clause", err.Error())
 }
 
 func openDB(t *testing.T, file string) (db *sql.DB) {
@@ -161,6 +183,33 @@ func TestValidationCheck(t *testing.T) {
 		size > 3
 	expect
 	  throughput(method='ceph') > throughput(method='raw') * 0.95
+	`
+
+	holds, err = Holds(validation, db, "metrics")
+
+	assert.Nil(t, err)
+	assert.False(t, holds)
+}
+
+func TestValidationWithoutPredicates(t *testing.T) {
+	db := openDB(t, ":memory:")
+	defer db.Close()
+
+	loadTestTable(t, db)
+
+	validation = `
+	expect
+	  throughput > 0
+	`
+
+	holds, err := Holds(validation, db, "metrics")
+
+	assert.Nil(t, err)
+	assert.True(t, holds)
+
+	validation = `
+	expect
+	  throughput < 0
 	`
 
 	holds, err = Holds(validation, db, "metrics")

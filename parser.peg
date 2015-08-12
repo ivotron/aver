@@ -47,7 +47,7 @@ relative <-
       { p.SetRelative() }
 
 str <-
-   ws <[a-zA-Z] [a-zA-Z_0-9]*> ws
+   ws <[a-zA-Z_0-9] [a-zA-Z_0-9]*> ws
       { p.StringValue(buffer[begin:end]) }
 
 number <-

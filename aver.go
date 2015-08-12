@@ -2,6 +2,7 @@ package aver
 
 import (
 	"database/sql"
+	"regexp"
 	"strings"
 )
 
@@ -15,14 +16,17 @@ func (e AverError) Error() string {
 
 // checks values against a validation string
 func Holds(validation string, db *sql.DB, tbl string) (b bool, err error) {
-	// A validation statement can be seen as a very constrained subset of SQL: one
-	// relation, only conjunctions, only one comparison referring to one column
-	// and multiple predicates over the remaining ones.
+	// A validation statement can be seen as a very constrained subset of SQL:
+	//
+	//   * one relation
+	//   * only conjunctions
+	//   * only one comparison referring to one column
+	//   * multiple predicates over the remaining columns
 	//
 	//  for
 	//    <predicates_applying_to_both_sides_of_comparison>
 	//  expect
-	//    variable(<left-predicates>) <comp_op> variable<right-predicates>
+	//    variable(<left-predicates>) <comp_op> variable(<right-predicates>)
 	//
 	// Since there's only one relation, its name is omitted. The name of the
 	// columns taken into account is inferred in the way described in issue #12.
@@ -32,15 +36,15 @@ func Holds(validation string, db *sql.DB, tbl string) (b bool, err error) {
 	// values from two sets of independent variable values, always holds (is true
 	// for every point). Values for independent variables are taken from the
 	// predicates given for each side of the comparison (left vs. right side),
-	// plus the 'global' predicates.
+	// plus the 'global' predicates (appearing in the 'for' clause).
 	//
 	// Another way of describing this is by thinking in terms of the relation that
-	// holds the metrics: we first filter out all irrelevant rows (via the global
-	// predicates) and partition the remainder rowset in two by applying the
-	// predicates for each 'partition'. We then evaluate each side of the
-	// comparison by taking values from these two subsets. If the comparison holds
-	// for ever pairwise evaluation of the comparison (`var(left) comp_op
-	// var(right)`), then the validation statement holds
+	// holds the data: we first filter out all irrelevant rows (via the global
+	// predicates) and partition the resulting relation in two by applying the
+	// predicates for each 'partition'. We then evaluate the comparison by taking
+	// values from these two subsets. If the comparison holds for every pairwise
+	// evaluation of the comparison (`var(<left>) comp_op var(<right>)`), then the
+	// validation statement holds
 
 	if db == nil {
 		return false, AverError{"null sql.DB pointer"}
@@ -51,23 +55,38 @@ func Holds(validation string, db *sql.DB, tbl string) (b bool, err error) {
 		return
 	}
 
-	// we can only compare values from the same dependent variable. There's no
-	// fundamental reason why this is so, but we haven't observed the need of
-	// comparing distinct variables in practice
+	// we can only compare values from the same dependent variable (unless there's
+	// a numeric literal in the RHS)
+	// {
 	dependentVar := v.left.funcName
-	if v.left.funcName != v.right.funcName {
+	rxFloat := regexp.MustCompile("^[-+]?[0-9]?[\\.]?[0-9]+$")
+	isLeftNumeric := rxFloat.MatchString(v.left.funcName)
+	isRightNumeric := rxFloat.MatchString(v.right.funcName)
+	if isLeftNumeric && isRightNumeric {
 		return false, AverError{
-			"Validation string; " + v.left.funcName + " discint to " + v.right.funcName}
+			"Expecting reference to a variable in comparison clause"}
+	} else if isLeftNumeric {
+		return false, AverError{
+			"Numeric is only supported on the RHS of comparison clause"}
+	} else if !isRightNumeric && v.left.funcName != v.right.funcName {
+		return false, AverError{
+			"Validation comparison; " + v.left.funcName + " distinct to " + v.right.funcName}
 	}
+	// }
 
 	// get predicates
 	// {
 	leftPredicates := v.left.predicates
 	rightPredicates := v.right.predicates
-
 	if v.global != "" {
 		leftPredicates = leftPredicates + " and " + v.global
 		rightPredicates = rightPredicates + " and " + v.global
+	}
+	if leftPredicates != "" {
+		leftPredicates = " where " + leftPredicates
+	}
+	if rightPredicates != "" {
+		rightPredicates = " where " + rightPredicates
 	}
 	// }
 
@@ -77,9 +96,7 @@ func Holds(validation string, db *sql.DB, tbl string) (b bool, err error) {
 	// test for having non-zero number of values
 	// {
 	err = db.QueryRow(
-		"select count(*) " +
-			" from " + tbl +
-			" where " + leftPredicates).Scan(&countForLeft)
+		"select count(*) from " + tbl + leftPredicates).Scan(&countForLeft)
 	if err != nil {
 		return
 	}
@@ -87,9 +104,7 @@ func Holds(validation string, db *sql.DB, tbl string) (b bool, err error) {
 		return false, AverError{"no values associated to left-side predicates"}
 	}
 	err = db.QueryRow(
-		"select count(*) " +
-			" from " + tbl +
-			" where " + rightPredicates).Scan(&countForRight)
+		"select count(*) from " + tbl + rightPredicates).Scan(&countForRight)
 	if err != nil {
 		return
 	}
@@ -139,9 +154,9 @@ func Holds(validation string, db *sql.DB, tbl string) (b bool, err error) {
 	err = db.QueryRow(
 		"select count(*) " +
 			"from ( " +
-			"   (select " + strings.Join(columns, ",") + " from " + tbl + " where " + leftPredicates + ")" +
+			"   (select " + strings.Join(columns, ",") + " from " + tbl + leftPredicates + ")" +
 			"   natural join " +
-			"   (select " + strings.Join(columns, ",") + " from " + tbl + " where " + rightPredicates + ")" +
+			"   (select " + strings.Join(columns, ",") + " from " + tbl + rightPredicates + ")" +
 			")").Scan(&count)
 	if err != nil {
 		return
@@ -155,22 +170,29 @@ func Holds(validation string, db *sql.DB, tbl string) (b bool, err error) {
 	// above but we also get the column for the dependent variable and test the
 	// condition at the outermost WHERE clause
 	// {
-	relative := ""
-	if v.relative != "" {
-		relative = "* " + v.relative
+	rhs := ""
+	if isRightNumeric {
+		// if we have a numeric RHS, then we just ignore the 'b.right' column
+		rhs = v.right.funcName
+	} else {
+		// otherwise, we refer to the 'b.right' column in the rhs of the comparison
+		rhs = " right "
+		if v.relative != "" {
+			rhs = rhs + " * " + v.relative
+		}
 	}
 	err = db.QueryRow(
 		"select count(*) " +
 			"from ( " +
 			"  (select " + strings.Join(columns, ",") + "," + dependentVar + " as left " +
-			"  from " + tbl +
-			"  where " + leftPredicates + ") as a" +
+			"     from " + tbl + leftPredicates +
+			"  ) as a" +
 			" natural join " +
 			"  (select " + strings.Join(columns, ",") + "," + dependentVar + " as right " +
-			"  from " + tbl +
-			"  where " + rightPredicates + ") as b" +
+			"     from " + tbl + rightPredicates +
+			"  ) as b" +
 			") " +
-			"where left " + v.op + " right " + relative).Scan(&count)
+			"where left " + v.op + rhs).Scan(&count)
 	if err != nil {
 		return
 	}

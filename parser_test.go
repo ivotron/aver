@@ -47,6 +47,39 @@ func TestValidParsing(t *testing.T) {
 	assert.Equal(t, "foo", v.left.funcName)
 	assert.Equal(t, "bar", v.right.funcName)
 	assert.Equal(t, "0.9", v.relative)
+
+	input = `
+	expect
+	   foo > 0
+	`
+
+	v, err = ParseValidation(input)
+
+	assert.Nil(t, err)
+	assert.Equal(t, "foo", v.left.funcName)
+	assert.Equal(t, "0", v.right.funcName)
+
+	input = `
+	expect
+	   0 < foo
+	`
+
+	v, err = ParseValidation(input)
+
+	assert.Nil(t, err)
+	assert.Equal(t, "0", v.left.funcName)
+	assert.Equal(t, "foo", v.right.funcName)
+
+	input = `
+	expect
+	   0 < 0
+	`
+
+	v, err = ParseValidation(input)
+
+	assert.Nil(t, err)
+	assert.Equal(t, "0", v.left.funcName)
+	assert.Equal(t, "0", v.right.funcName)
 }
 
 func TestInvalidParsing(t *testing.T) {
