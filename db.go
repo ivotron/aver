@@ -33,7 +33,7 @@ func makeDbFromCsv(file string) (db *sql.DB, tblName string, err error) {
 	lazyQuotes := false
 	header := true
 	tableName := "tbl"
-	save_to := "foo.db"
+	save_to := ""
 	open_sqlite_console := false
 	verbose := false
 

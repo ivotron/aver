@@ -163,7 +163,7 @@ func Holds(validation string, db *sql.DB, tbl string) (b bool, err error) {
 	}
 	if count != valueCount {
 		return false, AverError{
-			"number of values doesn't match for left/right predicates"}
+			"number of values for unpredicated columns doesn't match for left/right sides"}
 	}
 
 	// now, test the validation statement, which is basically the same join as
