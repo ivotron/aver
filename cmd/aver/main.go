@@ -12,6 +12,7 @@ import (
 var dbConfig string
 var dataFile string
 var fileType string
+var printVersion bool
 
 func main() {
 
@@ -22,6 +23,7 @@ func main() {
 		Run:   Execute,
 	}
 
+	cmd.Flags().BoolVarP(&printVersion, "version", "v", false, `Print program version.`)
 	cmd.Flags().StringVarP(&dbConfig, "dbconf", "c", "", `Name of file containing
 			database configuration. Format is JSON where only top-level elements are
 			considered. See http://github.com/ivotron/aver for supported drivers and
@@ -34,6 +36,10 @@ func main() {
 }
 
 func Execute(cmd *cobra.Command, args []string) {
+	if printVersion {
+		println("Aver validation engine v0.2.1 -- HEAD")
+		os.Exit(0)
+	}
 	if len(args) == 0 {
 		log.Fatalln(cmd.UsageString())
 	}
