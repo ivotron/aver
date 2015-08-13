@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/ivotron/aver"
@@ -37,7 +39,7 @@ func main() {
 
 func Execute(cmd *cobra.Command, args []string) {
 	if printVersion {
-		println("Aver validation engine v0.2.1 -- HEAD")
+		fmt.Println("Aver validation engine v0.2.2 -- HEAD")
 		os.Exit(0)
 	}
 	if len(args) == 0 {
@@ -68,6 +70,9 @@ func Execute(cmd *cobra.Command, args []string) {
 
 	holds, err := aver.Holds(args[0], db, tblName)
 	if err != nil {
+		var stack [4096]byte
+		runtime.Stack(stack[:], true)
+		log.Printf("%q\n%s\n", err, stack[:])
 		log.Fatalln("ERROR: " + err.Error())
 	}
 
