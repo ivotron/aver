@@ -15,6 +15,7 @@ var dbConfig string
 var dataFile string
 var fileType string
 var printVersion bool
+var toStdout bool
 
 func main() {
 
@@ -25,6 +26,13 @@ func main() {
 		Run:   Execute,
 	}
 
+	cmd.Flags().BoolVarP(&toStdout, "stdout", "s", false, `Print result (true|false)
+			to stdout. By default, the program returns an exit code of 1 if the validation
+			fails, and 0 if it holds. With this option, 1 is returned only if there's an error
+			in the execution of the program; the result of the validation is printed
+			to stdout ('false' if it fails; 'true' if it holds). Thus, when --stdout is given,
+			the exit code will always be 0 (unless there's an error) regardless of wheter the
+			validation holds or not.`)
 	cmd.Flags().BoolVarP(&printVersion, "version", "v", false, `Print program version.`)
 	cmd.Flags().StringVarP(&dbConfig, "dbconf", "c", "", `Name of file containing
 			database configuration. Format is JSON where only top-level elements are
@@ -39,7 +47,7 @@ func main() {
 
 func Execute(cmd *cobra.Command, args []string) {
 	if printVersion {
-		fmt.Println("Aver validation engine v0.2.2 -- HEAD")
+		fmt.Println("Aver validation engine v0.3.0 -- HEAD")
 		os.Exit(0)
 	}
 	if len(args) == 0 {
@@ -78,7 +86,9 @@ func Execute(cmd *cobra.Command, args []string) {
 
 	db.Close()
 
-	if !holds {
+	if toStdout {
+		fmt.Printf("%t\n", holds)
+	} else if !holds {
 		os.Exit(1)
 	}
 }
